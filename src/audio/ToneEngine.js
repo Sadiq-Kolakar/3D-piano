@@ -11,10 +11,11 @@ class ToneEngine {
     
     if (onProgress) onProgress(50, 'Initializing Synthesizer...')
     
-    // Use a PolySynth which generates sound locally (no mp3 downloads needed)
+    // Create a rich synth sound instantly. Removed the Reverb module
+    // which was blocking the initialization thread.
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { 
-        type: "fat" 
+        type: "triangle" 
       },
       envelope: {
         attack: 0.01,
@@ -24,16 +25,6 @@ class ToneEngine {
       }
     }).toDestination()
     
-    // Create a reverb effect to make it sound premium and less computer-like
-    const reverb = new Tone.Reverb({
-        decay: 2.0,
-        preDelay: 0.01,
-    }).toDestination()
-    
-    // Need to await reverb generation internally
-    await reverb.generate()
-    
-    this.synth.connect(reverb)
     this.isInitialized = true
     
     if (onProgress) onProgress(100, 'Ready')
@@ -46,7 +37,6 @@ class ToneEngine {
   playNote(note) {
     if (!this.isInitialized) return
     try {
-      // Small velocity variation can make it sound slightly more natural
       this.synth.triggerAttack(note, Tone.now(), 0.8)
     } catch (e) {
       console.error("Play note error:", e)
