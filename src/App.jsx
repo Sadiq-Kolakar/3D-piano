@@ -1,116 +1,273 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as Tone from 'tone'
-import Scene3D from './components/Scene3D'
-import { BeginnerOverlay, IntermediateOverlay, ExpertOverlay } from './components/ModeOverlays'
-import { usePianoEvents } from './hooks/usePianoEvents'
 import { toneEngine } from './audio/ToneEngine'
-import DesktopGate from './components/DesktopGate'
+import { PIANO_KEYS, getNoteFromKey } from './utils/keyboardMap'
 import LoadingScreen from './components/LoadingScreen'
-import { CONFIG } from './constants/config'
 
 function App() {
-  const [currentMode, setCurrentMode] = useState(CONFIG.MODES.LANDING)
   const [isAudioInitialized, setAudioInitialized] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loadProgress, setLoadProgress] = useState(0)
   const [loadStatus, setLoadStatus] = useState('')
+  const [activeNotes, setActiveNotes] = useState(new Set())
+  const [volume, setVolume] = useState(0) // Tone.js volume in dB (0 is max, -60 is min)
 
-  usePianoEvents(currentMode)
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false)
+  const [isPlayingBack, setIsPlayingBack] = useState(false)
+  const [recordedNotes, setRecordedNotes] = useState([])
+  const recordingStartTime = useRef(0)
+  const playbackTimeouts = useRef([])
 
-  const handleModeChange = async (mode) => {
-    if (!isAudioInitialized) {
-      setIsLoading(true)
-      await Tone.start() // Required user gesture
+  useEffect(() => {
+    // Add Volume node
+    Tone.Destination.volume.value = volume;
+  }, [volume])
+
+  const initializeAudio = async () => {
+    setIsLoading(true)
+    await Tone.start()
+    
+    setTimeout(async () => {
+      await toneEngine.init((progress, status) => {
+        setLoadProgress(progress)
+        setLoadStatus(status)
+      })
+      setAudioInitialized(true)
+      setIsLoading(false)
+      toneEngine.loadRemainingOctaves()
+    }, 50)
+  }
+
+  // Handle Keyboard events
+  useEffect(() => {
+    if (!isAudioInitialized) return
+
+    const handleKeyDown = (e) => {
+      if (e.repeat) return; // Ignore hold repeats
       
-      // Artificial short delay so React can paint the Loading Screen before the main thread locks up
-      setTimeout(async () => {
-        await toneEngine.init((progress, status) => {
-          setLoadProgress(progress)
-          setLoadStatus(status)
+      const note = getNoteFromKey(e.key)
+      if (note) {
+        setActiveNotes(prev => new Set(prev).add(note))
+        toneEngine.playNote(note)
+
+        if (isRecording) {
+          setRecordedNotes(prev => [
+            ...prev,
+            { note, time: Date.now() - recordingStartTime.current, type: 'attack' }
+          ])
+        }
+      }
+    }
+
+    const handleKeyUp = (e) => {
+      const note = getNoteFromKey(e.key)
+      if (note) {
+        setActiveNotes(prev => {
+          const next = new Set(prev);
+          next.delete(note);
+          return next;
         })
-        setAudioInitialized(true)
-        setIsLoading(false)
-        setCurrentMode(mode)
-        
-        // Kick off background loading of remaining octaves
-        toneEngine.loadRemainingOctaves()
-      }, 50)
+        toneEngine.releaseNote(note)
+
+        if (isRecording) {
+            setRecordedNotes(prev => [
+              ...prev,
+              { note, time: Date.now() - recordingStartTime.current, type: 'release' }
+            ])
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isAudioInitialized, isRecording])
+
+  const handleRecordToggle = () => {
+    if (isRecording) {
+      setIsRecording(false)
     } else {
-      setCurrentMode(mode)
+      setRecordedNotes([])
+      recordingStartTime.current = Date.now()
+      setIsRecording(true)
+    }
+  }
+
+  const handlePlayback = () => {
+    if (recordedNotes.length === 0 || isPlayingBack) return;
+    setIsPlayingBack(true);
+
+    recordedNotes.forEach(event => {
+      const timeout = setTimeout(() => {
+        if (event.type === 'attack') {
+          setActiveNotes(prev => new Set(prev).add(event.note));
+          toneEngine.playNote(event.note);
+        } else {
+          setActiveNotes(prev => {
+            const next = new Set(prev);
+            next.delete(event.note);
+            return next;
+          });
+          toneEngine.releaseNote(event.note);
+        }
+      }, event.time);
+      playbackTimeouts.current.push(timeout);
+    });
+
+    // Reset playback status after last note
+    if (recordedNotes.length > 0) {
+      const lastEventTime = recordedNotes[recordedNotes.length - 1].time;
+      setTimeout(() => {
+        setIsPlayingBack(false);
+      }, lastEventTime + 500);
+    }
+  }
+
+  const stopPlayback = () => {
+    playbackTimeouts.current.forEach(clearTimeout);
+    playbackTimeouts.current = [];
+    setActiveNotes(new Set());
+    setIsPlayingBack(false);
+  }
+
+  const renderKey = (keyDef) => {
+    const isActive = activeNotes.has(keyDef.note)
+    if (keyDef.type === 'white') {
+      return (
+        <div 
+          key={keyDef.note}
+          className={`white-key ${isActive ? 'active' : ''}`}
+          onMouseDown={() => {
+            toneEngine.playNote(keyDef.note)
+            setActiveNotes(prev => new Set(prev).add(keyDef.note))
+          }}
+          onMouseUp={() => {
+            toneEngine.releaseNote(keyDef.note)
+            setActiveNotes(prev => {
+               const next = new Set(prev)
+               next.delete(keyDef.note)
+               return next
+            })
+          }}
+          onMouseLeave={() => {
+            if (activeNotes.has(keyDef.note)) {
+                toneEngine.releaseNote(keyDef.note)
+                setActiveNotes(prev => {
+                   const next = new Set(prev)
+                   next.delete(keyDef.note)
+                   return next
+                })
+            }
+          }}
+        >
+          <span className="uppercase text-xs mb-2 opacity-50">{keyDef.label}</span>
+        </div>
+      )
+    } else {
+      return (
+        <div 
+          key={keyDef.note}
+          className={`black-key ${isActive ? 'active' : ''}`}
+          style={{ left: keyDef.offset }}
+          onMouseDown={() => {
+            toneEngine.playNote(keyDef.note)
+            setActiveNotes(prev => new Set(prev).add(keyDef.note))
+          }}
+          onMouseUp={() => {
+            toneEngine.releaseNote(keyDef.note)
+            setActiveNotes(prev => {
+               const next = new Set(prev)
+               next.delete(keyDef.note)
+               return next
+            })
+          }}
+          onMouseLeave={() => {
+            if (activeNotes.has(keyDef.note)) {
+                toneEngine.releaseNote(keyDef.note)
+                setActiveNotes(prev => {
+                   const next = new Set(prev)
+                   next.delete(keyDef.note)
+                   return next
+                })
+            }
+          }}
+        >
+          <span className="text-xs mb-4 opacity-50">{keyDef.label}</span>
+        </div>
+      )
     }
   }
 
   return (
-    <DesktopGate>
-      <div className="w-full h-screen bg-transparent text-[#ededed] overflow-hidden relative font-outfit">
-        {isLoading && <LoadingScreen progress={loadProgress} status={loadStatus} />}
-        
-        {currentMode === CONFIG.MODES.LANDING && !isLoading && (
-          <div className="absolute inset-x-0 bottom-0 top-0 z-10 flex flex-col justify-end p-12 md:p-24 bg-gradient-to-t from-[#020202] via-[#020202]/60 to-transparent pointer-events-none">
-            {/* Cinematic Background Orbs */}
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#facc15] rounded-full mix-blend-screen filter blur-[150px] opacity-10 animate-pulse" />
-            <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#ffffff] rounded-full mix-blend-screen filter blur-[200px] opacity-5" />
+    <div className="piano-container font-sans text-[#e2e2e2]">
+      {isLoading && <LoadingScreen progress={loadProgress} status={loadStatus} />}
+      
+      {!isAudioInitialized && !isLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <h1 className="text-4xl md:text-6xl font-light tracking-widest mb-4 font-['Manrope'] uppercase text-white">Piano Pro</h1>
+            <p className="text-lg text-[#919191] mb-8 max-w-lg">A premium monochromatic instrument. Ready to perform?</p>
+            <button 
+              onClick={initializeAudio}
+              className="bg-white text-[#1a1c1c] uppercase tracking-widest font-semibold text-sm px-10 py-4 hover:bg-[#d4d4d4] transition-colors"
+            >
+              Start Session
+            </button>
+        </div>
+      ) : (
+        <>
+          <header className="header-panel p-6 px-10 flex items-center justify-between">
+            <h1 className="text-2xl font-light tracking-widest uppercase text-white font-['Manrope']">Piano Pro</h1>
             
-            {/* Subtle Grid Overlay */}
-            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwem0yMCAyMGgyMHYyMEgyMHoiIGZpbGw9IiNmZmZmZmZc1MiBmaWxsLW9wYWNpdHk9IjAuMDIiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvc3ZnPg==')] opacity-20 pointer-events-none" />
-
-            <div className="max-w-3xl pointer-events-auto relative z-20">
-              <div className="mb-4 inline-block">
-                <span className="px-3 py-1 border border-[#333333] tracking-[0.2em] text-[10px] uppercase text-[#888888] bg-[#111111]/50 backdrop-blur-md">
-                  Web Audio API + Three.js
-                </span>
+            <div className="flex items-center gap-12">
+              <div className="flex items-center gap-4">
+                <span className="uppercase tracking-widest text-xs text-[#919191] w-16">Vol</span>
+                <input 
+                  type="range" 
+                  min="-60" max="0" 
+                  value={volume} 
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="volume-slider w-32"
+                />
               </div>
-              <h1 className="text-5xl md:text-[5rem] leading-[1.1] font-light mb-6 tracking-tight drop-shadow-2xl">
-                Turn your keyboard <br />
-                <span className="text-[#8a8a8a]">into a <span className="text-[#ededed]">Piano</span></span>
-              </h1>
-              <p className="text-lg md:text-xl text-[#8a8a8a] mb-12 font-light max-w-xl">
-                A premium browser-based instrument designed for learning, practice, and performance. Select your proficiency to begin.
-              </p>
-              
-              <div className="flex flex-wrap gap-4">
-                {[
-                  { id: CONFIG.MODES.BEGINNER, name: 'Beginner', desc: 'Guided learning & tutorials' },
-                  { id: CONFIG.MODES.INTERMEDIATE, name: 'Intermediate', desc: 'Scales & polyphony' },
-                  { id: CONFIG.MODES.EXPERT, name: 'Expert', desc: 'Studio tools & metronome' }
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    onClick={() => handleModeChange(mode.id)}
-                    className="group relative overflow-hidden bg-[#050505] border border-[#222222] hover:border-[#facc15] px-8 py-6 text-left transition-all duration-500 w-full md:w-auto min-w-[200px]"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#facc15]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <h3 className="text-lg font-light tracking-wider text-[#ededed] mb-1 group-hover:text-[#facc15] transition-colors">{mode.name}</h3>
-                    <p className="text-xs tracking-widest uppercase text-[#555555]">{mode.desc}</p>
-                  </button>
-                ))}
+
+              <div className="flex items-center gap-4 border-l border-[#353535] pl-12">
+                <button 
+                  onClick={handleRecordToggle}
+                  disabled={isPlayingBack}
+                  className={`flex items-center gap-2 px-6 py-2 uppercase tracking-widest text-xs font-semibold select-none border border-[#474747] ${isRecording ? 'bg-[#93000a] text-[#ffdad6] border-transparent' : 'bg-[#1f1f1f] hover:bg-[#353535]'}`}
+                >
+                  {isRecording ? '• Recording' : 'Record'}
+                </button>
+                
+                {recordedNotes.length > 0 && !isRecording && (
+                    <button 
+                    onClick={isPlayingBack ? stopPlayback : handlePlayback}
+                    className="flex items-center gap-2 px-6 py-2 bg-white text-[#1a1c1c] uppercase tracking-widest text-xs font-semibold select-none hover:bg-[#d4d4d4]"
+                    >
+                    {isPlayingBack ? 'Stop' : 'Playback'}
+                    </button>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          </header>
 
-        {currentMode !== CONFIG.MODES.LANDING && !isLoading && (
-          <div className="absolute top-8 left-8 z-50">
-            <button 
-              onClick={() => setCurrentMode(CONFIG.MODES.LANDING)}
-              className="px-6 py-2 rounded border border-gray-800 bg-[#020202]/80 hover:bg-[#121212] text-gray-300 text-sm transition-all uppercase tracking-widest"
-            >
-              Back to Menu
-            </button>
-          </div>
-        )}
-
-        {!isLoading && currentMode === CONFIG.MODES.BEGINNER && <BeginnerOverlay />}
-        {!isLoading && currentMode === CONFIG.MODES.INTERMEDIATE && <IntermediateOverlay />}
-        {!isLoading && currentMode === CONFIG.MODES.EXPERT && <ExpertOverlay />}
-
-        {/* 3D Canvas goes here behind the UI */}
-        <div className="absolute inset-0 z-0 bg-[#020202]">
-          <Scene3D mode={currentMode} />
-        </div>
-
-      </div>
-    </DesktopGate>
+          <main className="flex-1 flex flex-col justify-end pb-12">
+            <div className="keys-container relative mx-12 shadow-2xl shadow-black/50">
+                {/* Render white keys and black keys */}
+                {PIANO_KEYS.map(renderKey)}
+            </div>
+            <div className="text-center text-[#474747] text-xs uppercase tracking-[0.2em] mt-8">
+                Press corresponding keyboard keys to play
+            </div>
+          </main>
+        </>
+      )}
+    </div>
   )
 }
 
