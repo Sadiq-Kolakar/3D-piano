@@ -10,9 +10,8 @@ function App() {
   const [loadProgress, setLoadProgress] = useState(0)
   const [loadStatus, setLoadStatus] = useState('')
   const [activeNotes, setActiveNotes] = useState(new Set())
-  const [volume, setVolume] = useState(0) // Tone.js volume in dB (0 is max, -60 is min)
+  const [volume, setVolume] = useState(0) 
 
-  // Recording State
   const [isRecording, setIsRecording] = useState(false)
   const [isPlayingBack, setIsPlayingBack] = useState(false)
   const [recordedNotes, setRecordedNotes] = useState([])
@@ -20,7 +19,6 @@ function App() {
   const playbackTimeouts = useRef([])
 
   useEffect(() => {
-    // Add Volume node
     Tone.Destination.volume.value = volume;
   }, [volume])
 
@@ -39,13 +37,11 @@ function App() {
     }, 50)
   }
 
-  // Handle Keyboard events
   useEffect(() => {
     if (!isAudioInitialized) return
 
     const handleKeyDown = (e) => {
-      if (e.repeat) return; // Ignore hold repeats
-      
+      if (e.target.tagName === 'INPUT' || e.repeat) return;
       const note = getNoteFromKey(e.key)
       if (note) {
         setActiveNotes(prev => new Set(prev).add(note))
@@ -61,6 +57,7 @@ function App() {
     }
 
     const handleKeyUp = (e) => {
+      if (e.target.tagName === 'INPUT') return;
       const note = getNoteFromKey(e.key)
       if (note) {
         setActiveNotes(prev => {
@@ -119,7 +116,6 @@ function App() {
       playbackTimeouts.current.push(timeout);
     });
 
-    // Reset playback status after last note
     if (recordedNotes.length > 0) {
       const lastEventTime = recordedNotes[recordedNotes.length - 1].time;
       setTimeout(() => {
@@ -135,138 +131,251 @@ function App() {
     setIsPlayingBack(false);
   }
 
-  const renderKey = (keyDef) => {
-    const isActive = activeNotes.has(keyDef.note)
-    if (keyDef.type === 'white') {
-      return (
-        <div 
-          key={keyDef.note}
-          className={`white-key ${isActive ? 'active' : ''}`}
-          onMouseDown={() => {
-            toneEngine.playNote(keyDef.note)
-            setActiveNotes(prev => new Set(prev).add(keyDef.note))
-          }}
-          onMouseUp={() => {
-            toneEngine.releaseNote(keyDef.note)
-            setActiveNotes(prev => {
-               const next = new Set(prev)
-               next.delete(keyDef.note)
-               return next
-            })
-          }}
-          onMouseLeave={() => {
-            if (activeNotes.has(keyDef.note)) {
-                toneEngine.releaseNote(keyDef.note)
-                setActiveNotes(prev => {
-                   const next = new Set(prev)
-                   next.delete(keyDef.note)
-                   return next
-                })
-            }
-          }}
-        >
-          <span className="uppercase text-xs mb-2 opacity-50">{keyDef.label}</span>
-        </div>
-      )
-    } else {
-      return (
-        <div 
-          key={keyDef.note}
-          className={`black-key ${isActive ? 'active' : ''}`}
-          style={{ left: keyDef.offset }}
-          onMouseDown={() => {
-            toneEngine.playNote(keyDef.note)
-            setActiveNotes(prev => new Set(prev).add(keyDef.note))
-          }}
-          onMouseUp={() => {
-            toneEngine.releaseNote(keyDef.note)
-            setActiveNotes(prev => {
-               const next = new Set(prev)
-               next.delete(keyDef.note)
-               return next
-            })
-          }}
-          onMouseLeave={() => {
-            if (activeNotes.has(keyDef.note)) {
-                toneEngine.releaseNote(keyDef.note)
-                setActiveNotes(prev => {
-                   const next = new Set(prev)
-                   next.delete(keyDef.note)
-                   return next
-                })
-            }
-          }}
-        >
-          <span className="text-xs mb-4 opacity-50">{keyDef.label}</span>
-        </div>
-      )
-    }
+  const handleNotePlay = (note) => {
+    toneEngine.playNote(note)
+    setActiveNotes(prev => new Set(prev).add(note))
   }
 
+  const handleNoteRelease = (note) => {
+    toneEngine.releaseNote(note)
+    setActiveNotes(prev => {
+       const next = new Set(prev)
+       next.delete(note)
+       return next
+    })
+  }
+
+  if (!isAudioInitialized || isLoading) {
+    return (
+      <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col overflow-hidden items-center justify-center p-8 text-center relative selection:bg-primary/30">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -z-10"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[150px] -z-10"></div>
+        {isLoading && <LoadingScreen progress={loadProgress} status={loadStatus} />}
+        {!isLoading && (
+          <div className="z-10 bg-surface-container-low p-12 rounded-2xl border border-outline-variant/20 shadow-2xl backdrop-blur-xl">
+             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-4 font-headline text-on-surface">Nocturne</h1>
+             <p className="text-lg text-on-surface-variant mb-8 max-w-md mx-auto">Experience the resonance of a world-class concert grand. Start your session.</p>
+             <button 
+               onClick={initializeAudio}
+               className="bg-primary hover:bg-primary-dim text-on-primary font-bold px-10 py-4 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+             >
+               Start Session
+             </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const formatDuration = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getLatestTime = () => {
+    if (recordedNotes.length === 0) return '00:00';
+    return formatDuration(recordedNotes[recordedNotes.length - 1].time);
+  };
+
   return (
-    <div className="piano-container font-sans text-[#e2e2e2]">
-      {isLoading && <LoadingScreen progress={loadProgress} status={loadStatus} />}
-      
-      {!isAudioInitialized && !isLoading ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <h1 className="text-4xl md:text-6xl font-light tracking-widest mb-4 font-['Manrope'] uppercase text-white">Piano Pro</h1>
-            <p className="text-lg text-[#919191] mb-8 max-w-lg">A premium monochromatic instrument. Ready to perform?</p>
-            <button 
-              onClick={initializeAudio}
-              className="bg-white text-[#1a1c1c] uppercase tracking-widest font-semibold text-sm px-10 py-4 hover:bg-[#d4d4d4] transition-colors"
-            >
-              Start Session
-            </button>
+    <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col overflow-hidden selection:bg-primary/30">
+      <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl flex justify-between items-center px-8 h-16 shadow-[0_4_20px_rgba(0,0,0,0.3)] border-b border-white/5">
+        <div className="flex items-center gap-8">
+          <span className="text-2xl font-bold tracking-tighter text-on-surface font-headline">Nocturne</span>
+          <nav className="hidden md:flex gap-6">
+            <a className="font-headline tracking-tighter font-semibold text-primary border-b-2 border-primary pb-1 transition-all duration-300" href="#">Instruments</a>
+            <a className="font-headline tracking-tighter font-semibold text-on-surface-variant hover:text-on-surface transition-all duration-300" href="#">Presets</a>
+            <a className="font-headline tracking-tighter font-semibold text-on-surface-variant hover:text-on-surface transition-all duration-300" href="#">Recording</a>
+          </nav>
         </div>
-      ) : (
-        <>
-          <header className="header-panel p-6 px-10 flex items-center justify-between">
-            <h1 className="text-2xl font-light tracking-widest uppercase text-white font-['Manrope']">Piano Pro</h1>
-            
-            <div className="flex items-center gap-12">
-              <div className="flex items-center gap-4">
-                <span className="uppercase tracking-widest text-xs text-[#919191] w-16">Vol</span>
-                <input 
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-4 bg-surface-container-low px-3 py-1.5 rounded-full border border-white/5">
+              <span className="material-symbols-outlined text-sm text-on-surface-variant" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>volume_up</span>
+              <input 
                   type="range" 
                   min="-60" max="0" 
                   value={volume} 
                   onChange={(e) => setVolume(parseFloat(e.target.value))}
-                  className="volume-slider w-32"
-                />
-              </div>
+                  className="w-24 accent-primary h-1 bg-surface-container-highest appearance-none rounded-full cursor-pointer opacity-70 hover:opacity-100"
+              />
+          </div>
+          <button className="p-2 text-on-surface-variant hover:bg-surface-bright/20 rounded-full transition-all duration-300">
+            <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>settings</span>
+          </button>
+          <button className="p-2 text-on-surface-variant hover:bg-surface-bright/20 rounded-full transition-all duration-300">
+            <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>account_circle</span>
+          </button>
+        </div>
+      </header>
 
-              <div className="flex items-center gap-4 border-l border-[#353535] pl-12">
-                <button 
-                  onClick={handleRecordToggle}
-                  disabled={isPlayingBack}
-                  className={`flex items-center gap-2 px-6 py-2 uppercase tracking-widest text-xs font-semibold select-none border border-[#474747] ${isRecording ? 'bg-[#93000a] text-[#ffdad6] border-transparent' : 'bg-[#1f1f1f] hover:bg-[#353535]'}`}
-                >
-                  {isRecording ? '• Recording' : 'Record'}
-                </button>
-                
-                {recordedNotes.length > 0 && !isRecording && (
-                    <button 
-                    onClick={isPlayingBack ? stopPlayback : handlePlayback}
-                    className="flex items-center gap-2 px-6 py-2 bg-white text-[#1a1c1c] uppercase tracking-widest text-xs font-semibold select-none hover:bg-[#d4d4d4]"
-                    >
-                    {isPlayingBack ? 'Stop' : 'Playback'}
-                    </button>
-                )}
+      <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-surface-container-low/90 backdrop-blur-2xl flex flex-col items-center py-6 gap-8 z-40 hidden md:flex border-r border-white/5 shadow-xl">
+        <div className="flex flex-col items-center gap-1 group cursor-pointer">
+          <div className="w-12 h-12 flex items-center justify-center bg-surface-bright text-primary rounded-xl transition-transform duration-200 group-hover:scale-105 shadow-[0_4_12px_rgba(0,0,0,0.5)] border border-primary/20">
+            <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>piano</span>
+          </div>
+          <span className="font-headline text-[10px] font-medium text-primary">Piano</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 group cursor-pointer opacity-50 hover:opacity-100">
+          <div className="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-highest rounded-xl transition-all duration-200">
+            <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>keyboard</span>
+          </div>
+          <span className="font-headline text-[10px] font-medium text-on-surface-variant">Synth</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 group cursor-pointer opacity-50 hover:opacity-100">
+          <div className="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-highest rounded-xl transition-all duration-200">
+            <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>settings_input_component</span>
+          </div>
+          <span className="font-headline text-[10px] font-medium text-on-surface-variant">Organ</span>
+        </div>
+      </aside>
+
+      <main className="flex-grow pt-16 md:pl-20 pb-20 flex flex-col items-center justify-center relative bg-surface overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -z-10"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[150px] -z-10"></div>
+        
+        <div className="w-full max-w-7xl px-8 mb-8 flex flex-col xl:flex-row justify-between items-end gap-8 mt-4">
+          <div className="flex flex-col">
+            <span className="text-primary font-headline text-sm font-semibold tracking-widest uppercase mb-2">Maestro Mode</span>
+            <h1 className="text-on-surface font-headline text-5xl font-extrabold tracking-tighter shadow-sm text-shadow">Grand Piano</h1>
+            <p className="text-on-surface-variant max-w-md mt-4 font-body leading-relaxed">
+              Experience the resonance of a world-class concert grand. Use your computer keyboard to perform in real-time.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="glass-panel p-4 rounded-xl flex flex-col gap-3 min-w-[320px] shadow-2xl">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Playback</span>
+                  <div className="px-2 py-0.5 rounded bg-surface-container-highest flex items-center gap-1.5 cursor-pointer hover:bg-surface-bright transition-colors">
+                    <span className="text-[10px] font-medium text-primary">Session_{recordedNotes.length > 0 ? "Active" : "New"}.wav</span>
+                    <span className="material-symbols-outlined text-xs text-outline" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>expand_more</span>
+                  </div>
+                </div>
+                <span className="text-on-surface-variant text-[10px] font-mono tracking-tighter">00:00 / {getLatestTime()}</span>
+              </div>
+              
+              <div className="relative w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden cursor-pointer group">
+                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className={`h-full relative transition-all duration-300 ${isPlayingBack ? 'bg-primary w-full' : 'bg-primary w-0'}`}>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full shadow-[0_0_10px_rgba(251,191,36,0.8)] scale-0 group-hover:scale-100 transition-transform"></div>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handlePlayback}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all shadow-lg ${isPlayingBack ? 'bg-primary-dim text-on-primary' : 'bg-primary text-on-primary hover:bg-primary-dim'} active:scale-95`}
+                    disabled={recordedNotes.length === 0}
+                  >
+                    <span className="material-symbols-outlined text-xl" style={{fontVariationSettings: "'FILL' 1, 'wght' 400, 'opsz' 24"}}>play_arrow</span>
+                  </button>
+                  <button 
+                    onClick={stopPlayback}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-primary active:scale-95 transition-all text-xl"
+                  >
+                    <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>stop</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-on-surface-variant font-mono">{recordedNotes.length} notes</span>
+                </div>
               </div>
             </div>
-          </header>
+            
+            <div className="flex gap-4">
+              <div className="bg-surface-container-low p-6 rounded-xl border border-outline-variant/10 backdrop-blur-md flex flex-col gap-4 shadow-xl">
+                <div className="flex justify-between items-center gap-12">
+                  <span className="text-on-surface-variant text-xs font-semibold uppercase tracking-widest">Reverb</span>
+                  <span className="text-primary text-sm font-bold">42%</span>
+                </div>
+                <div className="w-32 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                  <div className="bg-primary h-full w-[42%] shadow-[0_0_10px_rgba(251,191,36,0.6)]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <main className="flex-1 flex flex-col justify-end pb-12">
-            <div className="keys-container relative mx-12 shadow-2xl shadow-black/50">
-                {/* Render white keys and black keys */}
-                {PIANO_KEYS.map(renderKey)}
+        <div className="w-full px-4 md:px-12 overflow-x-auto piano-scroll pb-8 mt-4">
+          <div className="relative flex min-w-max h-[400px] items-start pb-4">
+            <div className="flex h-full border border-white/5 rounded-b-xl shadow-[0_20_50px_rgba(0,0,0,0.8)]">
+              {PIANO_KEYS.filter(k => k.type === 'white').map((keyDef) => {
+                const isActive = activeNotes.has(keyDef.note);
+                return (
+                  <div 
+                    key={keyDef.note}
+                    onMouseDown={() => handleNotePlay(keyDef.note)}
+                    onMouseUp={() => handleNoteRelease(keyDef.note)}
+                    onMouseLeave={() => {
+                      if (activeNotes.has(keyDef.note)) handleNoteRelease(keyDef.note);
+                    }}
+                    className={`group relative w-[72px] h-[380px] bg-surface-container-highest border-x border-outline-variant/10 flex flex-col justify-end items-center pb-6 transition-all duration-75 select-none hover:bg-surface-bright cursor-pointer shadow-inner ${isActive ? 'bg-gradient-to-b from-primary/10 to-primary/30 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.5),0_0_20px_rgba(251,191,36,0.15)]' : ''}`}
+                  >
+                    <span className={`font-bold text-lg font-headline transition-colors ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}>{keyDef.label}</span>
+                    <span className="text-[10px] text-outline mt-1 font-body">{keyDef.note}</span>
+                  </div>
+                )
+              })}
             </div>
-            <div className="text-center text-[#474747] text-xs uppercase tracking-[0.2em] mt-8">
-                Press corresponding keyboard keys to play
+            
+            <div className="absolute top-0 left-0 w-full h-[240px] pointer-events-none drop-shadow-2xl">
+              {PIANO_KEYS.filter(k => k.type === 'black').map((keyDef) => {
+                const isActive = activeNotes.has(keyDef.note);
+                return (
+                  <div 
+                    key={keyDef.note}
+                    onMouseDown={() => handleNotePlay(keyDef.note)}
+                    onMouseUp={() => handleNoteRelease(keyDef.note)}
+                    onMouseLeave={() => {
+                      if (activeNotes.has(keyDef.note)) handleNoteRelease(keyDef.note);
+                    }}
+                    style={{ left: `${keyDef.offset}px` }}
+                    className={`pointer-events-auto absolute w-11 h-full bg-[#050505] rounded-b-md border-x border-b border-[#262626]/40 flex flex-col justify-end items-center pb-4 transition-all duration-75 select-none hover:bg-[#121212] cursor-pointer shadow-[2px_4px_10px_rgba(0,0,0,0.8)] z-10 ${isActive ? 'bg-tertiary shadow-[0_0_20px_rgba(163,230,53,0.3)] border-tertiary/50' : ''}`}
+                  >
+                    <span className={`font-bold text-sm font-headline transition-colors ${isActive ? 'text-[#050505]' : 'text-on-surface-variant'}`}>{keyDef.label}</span>
+                  </div>
+                )
+              })}
             </div>
-          </main>
-        </>
-      )}
+          </div>
+        </div>
+      </main>
+
+      <footer className="fixed bottom-0 left-0 w-full flex justify-around items-center px-12 py-4 bg-surface/90 backdrop-blur-xl z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/5">
+        <button className="flex flex-col items-center justify-center text-on-surface-variant p-3 hover:text-on-surface transition-all duration-200 hover:scale-110">
+          <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>keyboard_double_arrow_left</span>
+          <span className="font-headline text-[10px] uppercase tracking-widest mt-1">Octave Down</span>
+        </button>
+        <button className="flex flex-col items-center justify-center text-on-surface-variant p-3 hover:text-on-surface transition-all duration-200 hover:scale-110">
+          <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>vibration</span>
+          <span className="font-headline text-[10px] uppercase tracking-widest mt-1">Sustain</span>
+        </button>
+        
+        <div className="relative group">
+          <button 
+            onClick={handleRecordToggle}
+            className={`flex flex-col items-center justify-center rounded-full p-4 transition-all duration-300 scale-110 border relative overflow-hidden group ${isRecording ? 'bg-error-container/20 text-error border-error shadow-[0_0_20px_rgba(248,113,113,0.3)]' : 'bg-surface-bright text-on-surface-variant border-outline/20 hover:border-outline hover:text-on-surface'}`}
+          >
+            {isRecording && <div className="absolute inset-0 bg-error/5 animate-pulse-red opacity-100"></div>}
+            <span className={`material-symbols-outlined z-10 ${isRecording ? 'animate-pulse-red text-error' : ''}`} style={{fontVariationSettings: isRecording ? "'FILL' 1, 'wght' 400, 'opsz' 24" : "'FILL' 0, 'wght' 400, 'opsz' 24"}}>fiber_manual_record</span>
+            <span className="font-headline text-[10px] uppercase tracking-widest mt-1 font-bold z-10">{isRecording ? "Recording" : "Record"}</span>
+          </button>
+          {isRecording && <div className="absolute -top-1 -right-1 w-3 h-3 bg-error rounded-full animate-ping"></div>}
+        </div>
+        
+        <button className="flex flex-col items-center justify-center text-on-surface-variant p-3 hover:text-on-surface transition-all duration-200 hover:scale-110">
+          <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>timer</span>
+          <span className="font-headline text-[10px] uppercase tracking-widest mt-1">Metronome</span>
+        </button>
+        <button className="flex flex-col items-center justify-center text-on-surface-variant p-3 hover:text-on-surface transition-all duration-200 hover:scale-110">
+          <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>keyboard_double_arrow_right</span>
+          <span className="font-headline text-[10px] uppercase tracking-widest mt-1">Octave Up</span>
+        </button>
+      </footer>
     </div>
   )
 }
