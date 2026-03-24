@@ -20,7 +20,7 @@ export const PIANO_KEYS = [
   { note: 'F4', type: 'white', label: '[' },
   { note: 'F#4', type: 'black', label: '=', offset: 770 },
   { note: 'G4', type: 'white', label: ']' },
-  { note: 'G#4', type: 'black', label: 'A', offset: 842 }, // using A for G#4 as it's unmapped right now
+  { note: 'G#4', type: 'black', label: '-', offset: 842 }, // Fix 10: avoid 'A' collision
   { note: 'A4', type: 'white', label: 'Z' },
   { note: 'A#4', type: 'black', label: 'S', offset: 914 }, 
   { note: 'B4', type: 'white', label: 'X' },

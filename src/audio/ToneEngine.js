@@ -3,6 +3,7 @@ import * as Tone from 'tone'
 class ToneEngine {
   constructor() {
     this.synth = null
+    this.reverb = null
     this.isInitialized = false
   }
 
@@ -11,8 +12,10 @@ class ToneEngine {
     
     if (onProgress) onProgress(50, 'Initializing Synthesizer...')
     
-    // Create a rich synth sound instantly. Removed the Reverb module
-    // which was blocking the initialization thread.
+    // Add Reverb (Fix 7)
+    this.reverb = new Tone.Reverb(1.5).toDestination()
+
+    // Initialize Synth and connect to reverb
     this.synth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { 
         type: "triangle" 
@@ -23,16 +26,17 @@ class ToneEngine {
         sustain: 0.4,
         release: 1.2,
       }
-    }).toDestination()
+    }).connect(this.reverb)
     
+    // Initial reverb state
+    this.reverb.wet.value = 0.42 
+
     this.isInitialized = true
     
     if (onProgress) onProgress(100, 'Ready')
   }
 
-  loadRemainingOctaves() {
-    // No-op since PolySynth can generate any octave mathematically
-  }
+  loadRemainingOctaves() {}
 
   playNote(note) {
     if (!this.isInitialized) return
@@ -56,6 +60,12 @@ class ToneEngine {
     if (!this.isInitialized) return
     const releaseTime = isSustain ? 3.0 : 1.2
     this.synth.set({ envelope: { release: releaseTime } })
+  }
+
+  setReverb(value) {
+    if (!this.isInitialized || !this.reverb) return
+    // Map 0-100 UI slider to 0-1 wet value
+    this.reverb.wet.value = value / 100
   }
 }
 
