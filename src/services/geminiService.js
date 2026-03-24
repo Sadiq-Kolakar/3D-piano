@@ -21,14 +21,19 @@ export const initChat = () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey || apiKey === "PASTE_YOUR_KEY_HERE") return null;
     
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-pro",
-        systemInstruction: SYSTEM_PROMPT
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     chatSession = model.startChat({
-        history: [],
+        history: [
+            {
+                role: "user",
+                parts: [{ text: "System Configuration: " + SYSTEM_PROMPT }],
+            },
+            {
+                role: "model",
+                parts: [{ text: "Understood! I am Nocturne, the AI Piano Teacher. I will abide strictly by these instructions, keep answers concise, and use the [HIGHLIGHT:Notes] syntax to teach." }],
+            }
+        ],
     });
     return chatSession;
 };
