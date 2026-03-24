@@ -3,6 +3,7 @@ import * as Tone from 'tone'
 import { toneEngine } from './audio/ToneEngine'
 import { PIANO_KEYS, getNoteFromKey } from './utils/keyboardMap'
 import LoadingScreen from './components/LoadingScreen'
+import AITeacher from './components/AITeacher'
 
 const getShiftedNote = (note, octaveOffset) => {
   if (octaveOffset === 0) return note;
@@ -36,7 +37,8 @@ function App() {
   const [reverb, setReverb] = useState(42)
   const [activePanel, setActivePanel] = useState(null)
   
-  // New State for sidebar instruments
+  const [suggestedNotes, setSuggestedNotes] = useState(new Set()) 
+  
   const [activeInstrument, setActiveInstrument] = useState('piano')
 
   const selectInstrument = (inst) => {
@@ -416,6 +418,7 @@ function App() {
               {PIANO_KEYS.filter(k => k.type === 'white').map((keyDef) => {
                 const shiftedNote = getShiftedNote(keyDef.note, octave);
                 const isActive = activeNotes.has(shiftedNote);
+                const isSuggested = suggestedNotes.has(keyDef.note);
                 return (
                   <div 
                     key={keyDef.note}
@@ -424,7 +427,7 @@ function App() {
                     onMouseLeave={() => {
                       if (activeNotes.has(shiftedNote)) handleNoteRelease(keyDef.note);
                     }}
-                    className={`group relative w-[72px] h-[380px] bg-surface-container-highest border-x border-outline-variant/10 flex flex-col justify-end items-center pb-6 transition-all duration-75 select-none hover:bg-surface-bright cursor-pointer shadow-inner ${isActive ? 'bg-gradient-to-b from-primary/10 to-primary/30 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.5),0_0_20px_rgba(251,191,36,0.15)]' : ''}`}
+                    className={`group relative w-[72px] h-[380px] bg-surface-container-highest flex flex-col justify-end items-center pb-6 transition-all duration-75 select-none hover:bg-surface-bright cursor-pointer shadow-inner ${isActive ? 'bg-gradient-to-b from-primary/10 to-primary/30 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.5),0_0_20px_rgba(251,191,36,0.15)]' : ''} ${isSuggested && !isActive ? 'bg-tertiary/10 border-x border-b-4 border-tertiary/80 shadow-[inset_0_-20px_40px_rgba(163,230,53,0.2)]' : 'border-x border-outline-variant/10'}`}
                   >
                     <span className={`font-bold text-lg font-headline transition-colors ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}>{keyDef.label}</span>
                     <span className="text-[10px] text-outline mt-1 font-body">{shiftedNote}</span>
@@ -437,6 +440,7 @@ function App() {
               {PIANO_KEYS.filter(k => k.type === 'black').map((keyDef) => {
                 const shiftedNote = getShiftedNote(keyDef.note, octave);
                 const isActive = activeNotes.has(shiftedNote);
+                const isSuggested = suggestedNotes.has(keyDef.note);
                 return (
                   <div 
                     key={keyDef.note}
@@ -446,7 +450,7 @@ function App() {
                       if (activeNotes.has(shiftedNote)) handleNoteRelease(keyDef.note);
                     }}
                     style={{ left: `${keyDef.offset}px` }}
-                    className={`pointer-events-auto absolute w-11 h-full rounded-b-md border-x border-b border-[#262626]/40 flex flex-col justify-end items-center pb-4 transition-all duration-75 select-none cursor-pointer shadow-[2px_4px_10px_rgba(0,0,0,0.8)] z-10 ${isActive ? 'bg-tertiary shadow-[0_0_20px_rgba(163,230,53,0.3)] border-tertiary/50' : 'bg-[#050505] hover:bg-[#121212]'}`}
+                    className={`pointer-events-auto absolute w-11 h-full flex flex-col justify-end items-center pb-4 transition-all duration-75 select-none cursor-pointer rounded-b-md shadow-[2px_4px_10px_rgba(0,0,0,0.8)] z-10 ${isActive ? 'bg-tertiary shadow-[0_0_20px_rgba(163,230,53,0.5)]' : (isSuggested ? 'bg-[#050505] border-x border-b-4 border-tertiary shadow-[0_0_15px_rgba(163,230,53,0.4)]' : 'bg-[#050505] hover:bg-[#121212] border-x border-b border-[#262626]/40')}`}
                   >
                     <span className={`font-bold text-sm font-headline transition-colors ${isActive ? 'text-[#050505]' : 'text-on-surface-variant'}`}>{keyDef.label}</span>
                   </div>
@@ -456,6 +460,8 @@ function App() {
           </div>
         </div>
       </main>
+
+      <AITeacher onHighlight={setSuggestedNotes} />
 
       <footer className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 md:px-12 py-4 bg-surface/90 backdrop-blur-xl z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/5">
         <button 
