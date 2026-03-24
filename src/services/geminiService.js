@@ -1,14 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-let genAI = null;
-let model = null;
-
-if (apiKey) {
-  genAI = new GoogleGenerativeAI(apiKey);
-  model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-}
-
 const SYSTEM_PROMPT = `
 You are Nocturne, an expert AI piano teacher embedded directly inside a digital piano web application. 
 Your goal is to teach the user how to play the piano, suggest chords, melodies, and scales, and encourage them.
@@ -27,28 +18,39 @@ Limit your responses to be extremely concise and helpful. Don't write essays. Gi
 let chatSession = null;
 
 export const initChat = () => {
-    if (!model) return null;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === "PASTE_YOUR_KEY_HERE") return null;
+    
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: SYSTEM_PROMPT
+    });
+    
     chatSession = model.startChat({
-        systemInstruction: SYSTEM_PROMPT,
         history: [],
     });
     return chatSession;
 };
 
 export const sendMessage = async (message) => {
-    if (!chatSession) {
-        if (!apiKey) {
-            return { text: "⚠️ Error: VITE_GEMINI_API_KEY is not set in your .env file. Please add your Gemini API key (from Google AI Studio) to the .env file and restart the development server to use the AI teacher." };
-        }
-        initChat();
-    }
-    
     try {
+        if (!chatSession) {
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey || apiKey === "PASTE_YOUR_KEY_HERE" || apiKey.length < 10) {
+                return { text: "⚠️ Error: Your VITE_GEMINI_API_KEY is missing or invalid in .env.local! Did you paste your key?" };
+            }
+            initChat();
+        }
+        
+        if (!chatSession) {
+            return { text: "⚠️ Error: Failed to initialize the Gemini model session." };
+        }
+    
         const result = await chatSession.sendMessage(message);
-        const responseText = result.response.text();
-        return { text: responseText };
+        return { text: result.response.text() };
     } catch (error) {
         console.error("Gemini API Error:", error);
-        return { text: "I'm having trouble connecting to my neural network right now. Please check your API key and internet connection." };
+        return { text: `⚠️ Connection Error: ${error.message}` };
     }
 };
