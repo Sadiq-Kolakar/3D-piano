@@ -35,6 +35,16 @@ function App() {
   
   const [reverb, setReverb] = useState(42)
   const [activePanel, setActivePanel] = useState(null)
+  
+  // New State for sidebar instruments
+  const [activeInstrument, setActiveInstrument] = useState('piano')
+
+  const selectInstrument = (inst) => {
+     setActiveInstrument(inst)
+     if (isAudioInitialized) {
+       toneEngine.changeInstrument(inst)
+     }
+  }
 
   useEffect(() => {
     Tone.Destination.volume.value = volume;
@@ -258,11 +268,27 @@ function App() {
             </a>
             
             {(activePanel === 'instruments' || activePanel === 'presets') && (
-              <div className="absolute top-10 left-0 bg-surface-container-high border border-outline/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] rounded-lg p-4 w-48 z-50">
+              <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-surface-container-high border border-outline/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] rounded-lg p-4 w-56 z-50">
                 <p className="text-xs text-on-surface-variant uppercase tracking-widest">{activePanel} Options</p>
-                <div className="mt-2 flex flex-col gap-2">
-                   <button className="text-left text-sm text-on-surface hover:text-primary transition-colors">Default Config</button>
-                   <button className="text-left text-sm text-on-surface hover:text-primary transition-colors">Import Settings...</button>
+                <div className="mt-4 flex flex-col gap-3">
+                   <button 
+                     onClick={() => { setReverb(42); selectInstrument('piano'); setOctave(0); setActivePanel(null); }}
+                     className="text-left text-sm text-on-surface hover:text-primary transition-colors cursor-pointer"
+                   >
+                     Concert Hall (Default)
+                   </button>
+                   <button 
+                     onClick={() => { setReverb(80); selectInstrument('synth'); setOctave(-1); setActivePanel(null); }}
+                     className="text-left text-sm text-on-surface hover:text-primary transition-colors cursor-pointer"
+                   >
+                     Deep Space Synth
+                   </button>
+                   <button 
+                     onClick={() => { setReverb(15); selectInstrument('organ'); setOctave(0); setActivePanel(null); }}
+                     className="text-left text-sm text-on-surface hover:text-primary transition-colors cursor-pointer"
+                   >
+                     Church Organ
+                   </button>
                 </div>
               </div>
             )}
@@ -289,23 +315,23 @@ function App() {
       </header>
 
       <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-20 bg-surface-container-low/90 backdrop-blur-2xl flex flex-col items-center py-6 gap-8 z-40 hidden md:flex border-r border-white/5 shadow-[4px_0_20px_rgba(0,0,0,0.3)]">
-        <div className="flex flex-col items-center gap-1 group cursor-pointer">
-          <div className="w-12 h-12 flex items-center justify-center bg-surface-bright text-primary rounded-xl transition-transform duration-200 group-hover:scale-105 shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-primary/20">
+        <div className={`flex flex-col items-center gap-1 group cursor-pointer ${activeInstrument !== 'piano' && 'opacity-50 hover:opacity-100'}`} onClick={() => selectInstrument('piano')}>
+          <div className={`w-12 h-12 flex items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${activeInstrument === 'piano' ? 'bg-surface-bright text-primary shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-primary/20' : 'text-on-surface-variant group-hover:bg-surface-container-highest'}`}>
             <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>piano</span>
           </div>
-          <span className="font-headline text-[10px] font-medium text-primary">Piano</span>
+          <span className={`font-headline text-[10px] font-medium ${activeInstrument === 'piano' ? 'text-primary' : 'text-on-surface-variant'}`}>Piano</span>
         </div>
-        <div className="flex flex-col items-center gap-1 group cursor-pointer opacity-50 hover:opacity-100">
-          <div className="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-highest rounded-xl transition-all duration-200">
+        <div className={`flex flex-col items-center gap-1 group cursor-pointer ${activeInstrument !== 'synth' && 'opacity-50 hover:opacity-100'}`} onClick={() => selectInstrument('synth')}>
+          <div className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105 ${activeInstrument === 'synth' ? 'bg-surface-bright text-primary shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-primary/20' : 'text-on-surface-variant group-hover:bg-surface-container-highest'}`}>
             <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>keyboard</span>
           </div>
-          <span className="font-headline text-[10px] font-medium text-on-surface-variant">Synth</span>
+          <span className={`font-headline text-[10px] font-medium ${activeInstrument === 'synth' ? 'text-primary' : 'text-on-surface-variant'}`}>Synth</span>
         </div>
-        <div className="flex flex-col items-center gap-1 group cursor-pointer opacity-50 hover:opacity-100">
-          <div className="w-12 h-12 flex items-center justify-center text-on-surface-variant group-hover:bg-surface-container-highest rounded-xl transition-all duration-200">
+        <div className={`flex flex-col items-center gap-1 group cursor-pointer ${activeInstrument !== 'organ' && 'opacity-50 hover:opacity-100'}`} onClick={() => selectInstrument('organ')}>
+          <div className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105 ${activeInstrument === 'organ' ? 'bg-surface-bright text-primary shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-primary/20' : 'text-on-surface-variant group-hover:bg-surface-container-highest'}`}>
             <span className="material-symbols-outlined text-[24px]" style={{fontVariationSettings: "'FILL' 0, 'wght' 400, 'opsz' 24"}}>settings_input_component</span>
           </div>
-          <span className="font-headline text-[10px] font-medium text-on-surface-variant">Organ</span>
+          <span className={`font-headline text-[10px] font-medium ${activeInstrument === 'organ' ? 'text-primary' : 'text-on-surface-variant'}`}>Organ</span>
         </div>
       </aside>
 

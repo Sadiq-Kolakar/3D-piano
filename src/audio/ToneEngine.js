@@ -64,8 +64,34 @@ class ToneEngine {
 
   setReverb(value) {
     if (!this.isInitialized || !this.reverb) return
-    // Map 0-100 UI slider to 0-1 wet value
     this.reverb.wet.value = value / 100
+  }
+
+  changeInstrument(instrumentName) {
+    if (!this.isInitialized || !this.synth) return;
+    
+    this.synth.releaseAll();
+
+    switch (instrumentName) {
+      case 'piano': 
+        this.synth.set({
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 1.2 }
+        });
+        break;
+      case 'synth': 
+        this.synth.set({
+          oscillator: { type: "sawtooth" },
+          envelope: { attack: 0.05, decay: 0.3, sustain: 0.6, release: 0.8 }
+        });
+        break;
+      case 'organ': 
+        this.synth.set({
+          oscillator: { type: "sine" },
+          envelope: { attack: 0.01, decay: 0.1, sustain: 0.9, release: 0.1 }
+        });
+        break;
+    }
   }
 }
 
