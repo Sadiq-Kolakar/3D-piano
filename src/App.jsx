@@ -212,17 +212,18 @@ function App() {
 
   if (!isAudioInitialized || isLoading) {
     return (
-      <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col overflow-hidden items-center justify-center p-8 text-center relative selection:bg-primary/30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -z-10"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[150px] -z-10"></div>
+      <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col overflow-hidden items-center justify-center p-8 text-center relative selection:bg-primary-container/30">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-container/5 rounded-full blur-[120px] -z-10"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-tertiary-container/5 rounded-full blur-[150px] -z-10"></div>
         {isLoading && <LoadingScreen progress={loadProgress} status={loadStatus} />}
         {!isLoading && (
-          <div className="z-10 bg-surface-container-low p-12 rounded-2xl border border-outline-variant/20 shadow-2xl backdrop-blur-xl">
-             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter mb-4 font-headline text-on-surface">Nocturne</h1>
-             <p className="text-lg text-on-surface-variant mb-8 max-w-md mx-auto">Experience the resonance of a world-class concert grand. Start your session.</p>
+          <div className="z-10 bg-surface-container-low p-12 md:p-16 rounded-2xl shadow-[0_40px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+             <span className="text-primary-container font-label text-xs font-semibold tracking-[0.2em] uppercase mb-4 block">Digital Piano Experience</span>
+             <h1 className="text-4xl md:text-6xl font-extrabold tracking-[-0.05em] mb-4 font-headline text-on-surface">NOCTURNE</h1>
+             <p className="text-base text-on-surface-variant mb-10 max-w-md mx-auto font-body leading-relaxed">Experience the resonance of a world-class concert grand. Start your session.</p>
              <button 
                onClick={initializeAudio}
-               className="bg-primary hover:bg-primary-dim text-on-primary font-bold px-10 py-4 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_4px_20px_rgba(251,191,36,0.2)]"
+               className="bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold px-10 py-4 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,191,0,0.3)] hover:shadow-[0_0_40px_rgba(255,191,0,0.5)]"
              >
                Start Session
              </button>
@@ -246,9 +247,9 @@ function App() {
 
   return (
     <div className="bg-surface font-body text-on-surface min-h-screen flex flex-col overflow-hidden selection:bg-primary/30">
-      <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl flex justify-between items-center px-8 h-16 shadow-[0_4px_20px_rgba(0,0,0,0.3)] border-b border-white/5">
+      <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-2xl flex justify-between items-center px-8 h-16 shadow-[0_4px_40px_rgba(0,0,0,0.5)]">
         <div className="flex items-center gap-8">
-          <span className="text-2xl font-bold tracking-tighter text-on-surface font-headline">Nocturne</span>
+          <span className="text-2xl font-bold tracking-[-0.05em] text-primary-container font-headline">NOCTURNE</span>
           <nav className="hidden md:flex gap-6 relative">
             <a 
               className={`font-headline tracking-tighter cursor-pointer font-semibold transition-all duration-300 ${activePanel === 'instruments' ? 'text-primary border-b-2 border-primary pb-1' : 'text-on-surface-variant hover:text-on-surface'}`} 
@@ -337,17 +338,18 @@ function App() {
         </div>
       </aside>
 
-      <main className="flex-grow pt-16 pl-0 md:pl-20 pb-28 flex flex-col items-center justify-center relative bg-surface overflow-x-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -z-10"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-tertiary/5 rounded-full blur-[150px] -z-10"></div>
+      <main className="flex-grow pt-16 pl-0 md:pl-20 pb-28 flex flex-col items-center justify-center relative bg-surface-container-lowest overflow-x-hidden">
+        <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-primary-container/4 rounded-full blur-[150px] -z-10"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-tertiary-container/3 rounded-full blur-[180px] -z-10"></div>
         
         <div className="w-full max-w-7xl px-8 mb-8 flex flex-col xl:flex-row justify-between items-end gap-8 mt-4">
           <div className="flex flex-col">
-            <span className="text-primary font-headline text-sm font-semibold tracking-widest uppercase mb-2">Maestro Mode {octave !== 0 && `(Octave: ${octave > 0 ? '+'+octave : octave})`}</span>
-            <h1 className="text-on-surface font-headline text-5xl font-extrabold tracking-tighter shadow-[0_4px_20px_rgba(0,0,0,0.5)]">Grand Piano</h1>
-            <p className="text-on-surface-variant max-w-md mt-4 font-body leading-relaxed">
-              Experience the resonance of a world-class concert grand. Use your computer keyboard to perform in real-time.
-            </p>
+            <span className="text-primary-container font-label text-[11px] font-semibold tracking-[0.2em] uppercase mb-3">SESSION VIEW {octave !== 0 && `· OCTAVE ${octave > 0 ? '+'+octave : octave}`}</span>
+            <h1 className="text-on-surface font-headline text-5xl font-extrabold tracking-[-0.05em]">Steinway Model D</h1>
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-[11px] text-on-surface-variant font-label bg-surface-container-high px-2.5 py-1 rounded">LATENCY 1.2ms</span>
+              <span className="text-[11px] text-on-surface-variant font-label bg-surface-container-high px-2.5 py-1 rounded">CPU 4%</span>
+            </div>
           </div>
           
           <div className="flex flex-wrap gap-4 items-end">
