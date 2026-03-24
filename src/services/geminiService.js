@@ -21,6 +21,7 @@ export const initChat = () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey || apiKey === "PASTE_YOUR_KEY_HERE") return null;
     
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     chatSession = model.startChat({
