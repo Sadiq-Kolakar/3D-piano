@@ -13,8 +13,8 @@ def auto_push(commit_message):
 
         print(f"[{time.strftime('%H:%M:%S')}] Changes detected. Adding, committing, and pushing...")
         
-        # Add all changes
-        subprocess.run(["git", "add", "."], check=True)
+        # Add only tracked files (safer — won't accidentally commit new secrets)
+        subprocess.run(["git", "add", "-u"], check=True)
         
         # Commit changes
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
